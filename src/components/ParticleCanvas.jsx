@@ -7,7 +7,6 @@ const ParticleCanvas = () => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    // Scene, camera, and renderer setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
       75,
@@ -21,7 +20,6 @@ const ParticleCanvas = () => {
 
     camera.position.z = 50;
 
-    // Load font and create the "nusense" text mesh
     const loader = new FontLoader();
     loader.load("/fonts/Harabara_Regular.json", (font) => {
       const textGeometry = new TextGeometry("nusense", {
@@ -35,25 +33,23 @@ const ParticleCanvas = () => {
       textGeometry.computeBoundingBox();
       const textCenter = new THREE.Vector3();
       textGeometry.boundingBox.getCenter(textCenter);
-      textMesh.position.sub(textCenter); // Center the text
+      textMesh.position.sub(textCenter);
 
-      scene.add(textMesh); // Text stays visible
+      scene.add(textMesh);
 
-      // Particle setup
-      const particleCount = 10000; // Adjust for performance
+      const particleCount = 10000;
       const positions = new Float32Array(particleCount * 3);
       const speeds = new Float32Array(particleCount * 3);
-      const directions = new Array(particleCount).fill(true); // Track movement direction
+      const directions = new Array(particleCount).fill(true);
 
-      // Initialize particles
       for (let i = 0; i < particleCount; i++) {
         positions[i * 3] = (Math.random() - 0.5) * 100;
         positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
         positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
 
-        speeds[i * 3] = Math.random() * 0.02 + 0.01;
-        speeds[i * 3 + 1] = Math.random() * 0.02 + 0.01;
-        speeds[i * 3 + 2] = Math.random() * 0.02 + 0.01;
+        speeds[i * 3] = Math.random() * 0.005 + 0.001; // Further reduced speed
+        speeds[i * 3 + 1] = Math.random() * 0.005 + 0.001; // Further reduced speed
+        speeds[i * 3 + 2] = Math.random() * 0.005 + 0.001; // Further reduced speed
       }
 
       const particleGeometry = new THREE.BufferGeometry();
@@ -64,7 +60,7 @@ const ParticleCanvas = () => {
 
       const particleMaterial = new THREE.PointsMaterial({
         color: 0x00aaff,
-        size: 0.4,
+        size: 0.2, // Reduced particle size
       });
 
       const particleSystem = new THREE.Points(
@@ -73,7 +69,6 @@ const ParticleCanvas = () => {
       );
       scene.add(particleSystem);
 
-      // Animate particles
       function animate() {
         requestAnimationFrame(animate);
 
@@ -87,26 +82,22 @@ const ParticleCanvas = () => {
           );
 
           if (directions[i]) {
-            // Move particles inward
             positionsArray[i * 3] -= positionsArray[i * 3] * speeds[i * 3];
             positionsArray[i * 3 + 1] -=
               positionsArray[i * 3 + 1] * speeds[i * 3 + 1];
             positionsArray[i * 3 + 2] -=
               positionsArray[i * 3 + 2] * speeds[i * 3 + 2];
 
-            // Switch direction if particle is close to the center
             if (distanceFromCenter < 10) {
               directions[i] = false;
             }
           } else {
-            // Move particles outward
             positionsArray[i * 3] += positionsArray[i * 3] * speeds[i * 3];
             positionsArray[i * 3 + 1] +=
               positionsArray[i * 3 + 1] * speeds[i * 3 + 1];
             positionsArray[i * 3 + 2] +=
               positionsArray[i * 3 + 2] * speeds[i * 3 + 2];
 
-            // Switch direction if particle reaches outward distance
             if (distanceFromCenter > 100) {
               directions[i] = true;
             }
