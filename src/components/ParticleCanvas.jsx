@@ -42,10 +42,11 @@ const ParticleCanvas = () => {
       const particleCount = 10000;
       const positions = new Float32Array(particleCount * 3);
       const speeds = new Float32Array(particleCount * 3);
-      const inwardDirections = new Array(particleCount / 2).fill(true); // For inward particles
-      const outwardDirections = new Array(particleCount / 2).fill(false); // For outward particles
+      const inwardDirections = new Array(particleCount / 2).fill(true); // Inward particles
+      const outwardDirections = new Array(particleCount / 2).fill(false); // Outward particles
 
-      // Initialize particle positions and speeds
+      const particleColors = new Float32Array(particleCount * 3); // Color for each particle
+
       for (let i = 0; i < particleCount; i++) {
         positions[i * 3] = (Math.random() - 0.5) * 100;
         positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
@@ -54,6 +55,11 @@ const ParticleCanvas = () => {
         speeds[i * 3] = Math.random() * 0.001 + 0.0003;
         speeds[i * 3 + 1] = Math.random() * 0.001 + 0.0003;
         speeds[i * 3 + 2] = Math.random() * 0.001 + 0.0003;
+
+        // Randomize particle colors
+        particleColors[i * 3] = Math.random();
+        particleColors[i * 3 + 1] = Math.random();
+        particleColors[i * 3 + 2] = Math.random();
       }
 
       const particleGeometry = new THREE.BufferGeometry();
@@ -61,10 +67,14 @@ const ParticleCanvas = () => {
         "position",
         new THREE.BufferAttribute(positions, 3)
       );
+      particleGeometry.setAttribute(
+        "color",
+        new THREE.BufferAttribute(particleColors, 3)
+      );
 
       const particleMaterial = new THREE.PointsMaterial({
-        color: 0x00aaff,
         size: 0.2,
+        vertexColors: true, // Enable vertex colors
       });
 
       const particleSystem = new THREE.Points(
@@ -77,7 +87,7 @@ const ParticleCanvas = () => {
       composer.addPass(new RenderPass(scene, camera));
       const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.4,
+        0.3,
         0.4,
         0.3
       );
@@ -102,6 +112,7 @@ const ParticleCanvas = () => {
         requestAnimationFrame(animate);
 
         const positionsArray = particleGeometry.attributes.position.array;
+        const colorsArray = particleGeometry.attributes.color.array;
 
         // Handle inward-moving particles
         for (let i = 0; i < particleCount / 2; i++) {
@@ -116,6 +127,11 @@ const ParticleCanvas = () => {
               positionsArray[i * 3 + 1] ** 2 +
               positionsArray[i * 3 + 2] ** 2
           );
+
+          // Dynamic particle color change
+          colorsArray[i * 3] = Math.abs(particlePos.x) / 100;
+          colorsArray[i * 3 + 1] = Math.abs(particlePos.y) / 100;
+          colorsArray[i * 3 + 2] = Math.abs(particlePos.z) / 100;
 
           if (inwardDirections[i]) {
             positionsArray[i * 3] -= positionsArray[i * 3] * speeds[i * 3];
@@ -154,6 +170,10 @@ const ParticleCanvas = () => {
               positionsArray[i * 3 + 2] ** 2
           );
 
+          colorsArray[i * 3] = Math.abs(particlePos.x) / 100;
+          colorsArray[i * 3 + 1] = Math.abs(particlePos.y) / 100;
+          colorsArray[i * 3 + 2] = Math.abs(particlePos.z) / 100;
+
           if (!outwardDirections[i - particleCount / 2]) {
             positionsArray[i * 3] += positionsArray[i * 3] * speeds[i * 3];
             positionsArray[i * 3 + 1] +=
@@ -178,12 +198,16 @@ const ParticleCanvas = () => {
         }
 
         particleGeometry.attributes.position.needsUpdate = true;
+        particleGeometry.attributes.color.needsUpdate = true; // Update particle colors
+
+        // Render the scene using the composer for postprocessing
         composer.render();
       }
 
       animate();
     });
 
+    // Handle window resizing
     const handleResize = () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       camera.aspect = window.innerWidth / window.innerHeight;
