@@ -1,10 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry";
 
 const ParticleCanvas = () => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
+    // Scene, camera, and renderer setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
       75,
@@ -16,86 +19,96 @@ const ParticleCanvas = () => {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    const particleCount = 10000;
-    const halfParticleCount = particleCount / 2;
-    const positions = new Float32Array(particleCount * 3);
-    const speeds = new Float32Array(particleCount * 3);
-    const directions = new Float32Array(particleCount);
-    const stopRadius = 1;
-    const boundaryRadius = 40;
+    camera.position.z = 50;
 
-    // Initial random particle positions (spread across the screen)
-    for (let i = 0; i < particleCount; i++) {
-      const x = (Math.random() - 0.5) * boundaryRadius;
-      const y = (Math.random() - 0.5) * boundaryRadius;
-      const z = (Math.random() - 0.5) * boundaryRadius;
+    // Load font and create the "nusense" text mesh
+    const loader = new FontLoader();
+    loader.load("/fonts/Harabara_Regular.json", (font) => {
+      const textGeometry = new TextGeometry("nusense", {
+        font: font,
+        size: 12,
+        height: 1,
+      });
+      const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
 
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
+      textGeometry.computeBoundingBox();
+      const textCenter = new THREE.Vector3();
+      textGeometry.boundingBox.getCenter(textCenter);
+      textMesh.position.sub(textCenter); // Center the text
 
-      speeds[i * 3] = Math.random() * 0.005 + 0.0005;
-      speeds[i * 3 + 1] = Math.random() * 0.005 + 0.0005;
-      speeds[i * 3 + 2] = Math.random() * 0.005 + 0.0005;
+      scene.add(textMesh); // Text stays visible
 
-      directions[i] = i < halfParticleCount ? 1 : -1;
-    }
+      // Particle setup
+      const particleCount = 10000; // Adjust for performance
+      const positions = new Float32Array(particleCount * 3);
+      const speeds = new Float32Array(particleCount * 3);
+      const directions = new Array(particleCount).fill(true); // Track movement direction
 
-    const particleGeometry = new THREE.BufferGeometry();
-    particleGeometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(positions, 3)
-    );
+      // Initialize particles
+      for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 100;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
 
-    const particleMaterial = new THREE.ShaderMaterial({
-      vertexShader: `
-        void main() {
-          gl_PointSize = 1.5;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        void main() {
-          gl_FragColor = vec4(0.1, 0.3, 1.0, 1.0);
-        }
-      `,
-    });
+        speeds[i * 3] = Math.random() * 0.02 + 0.01;
+        speeds[i * 3 + 1] = Math.random() * 0.02 + 0.01;
+        speeds[i * 3 + 2] = Math.random() * 0.02 + 0.01;
+      }
 
-    const particleSystem = new THREE.Points(particleGeometry, particleMaterial);
-    scene.add(particleSystem);
+      const particleGeometry = new THREE.BufferGeometry();
+      particleGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(positions, 3)
+      );
 
-    camera.position.z = 30;
+      const particleMaterial = new THREE.PointsMaterial({
+        color: 0x00aaff,
+        size: 0.4,
+      });
 
-    // Start particles movement after a delay
-    setTimeout(() => {
+      const particleSystem = new THREE.Points(
+        particleGeometry,
+        particleMaterial
+      );
+      scene.add(particleSystem);
+
+      // Animate particles
       function animate() {
         requestAnimationFrame(animate);
 
         const positionsArray = particleGeometry.attributes.position.array;
+
         for (let i = 0; i < particleCount; i++) {
-          const x = positionsArray[i * 3];
-          const y = positionsArray[i * 3 + 1];
-          const z = positionsArray[i * 3 + 2];
+          const distanceFromCenter = Math.sqrt(
+            positionsArray[i * 3] ** 2 +
+              positionsArray[i * 3 + 1] ** 2 +
+              positionsArray[i * 3 + 2] ** 2
+          );
 
-          // Inward movement with stop at the center
-          if (directions[i] === 1) {
-            if (Math.sqrt(x * x + y * y + z * z) > stopRadius) {
-              positionsArray[i * 3] += (0 - x) * speeds[i * 3];
-              positionsArray[i * 3 + 1] += (0 - y) * speeds[i * 3 + 1];
-              positionsArray[i * 3 + 2] += (0 - z) * speeds[i * 3 + 2];
-            } else {
-              directions[i] = -1;
+          if (directions[i]) {
+            // Move particles inward
+            positionsArray[i * 3] -= positionsArray[i * 3] * speeds[i * 3];
+            positionsArray[i * 3 + 1] -=
+              positionsArray[i * 3 + 1] * speeds[i * 3 + 1];
+            positionsArray[i * 3 + 2] -=
+              positionsArray[i * 3 + 2] * speeds[i * 3 + 2];
+
+            // Switch direction if particle is close to the center
+            if (distanceFromCenter < 10) {
+              directions[i] = false;
             }
-          }
+          } else {
+            // Move particles outward
+            positionsArray[i * 3] += positionsArray[i * 3] * speeds[i * 3];
+            positionsArray[i * 3 + 1] +=
+              positionsArray[i * 3 + 1] * speeds[i * 3 + 1];
+            positionsArray[i * 3 + 2] +=
+              positionsArray[i * 3 + 2] * speeds[i * 3 + 2];
 
-          // Outward movement with reversal at the boundary
-          if (directions[i] === -1) {
-            positionsArray[i * 3] += x * speeds[i * 3];
-            positionsArray[i * 3 + 1] += y * speeds[i * 3 + 1];
-            positionsArray[i * 3 + 2] += z * speeds[i * 3 + 2];
-
-            if (Math.sqrt(x * x + y * y + z * z) > boundaryRadius) {
-              directions[i] = 1;
+            // Switch direction if particle reaches outward distance
+            if (distanceFromCenter > 100) {
+              directions[i] = true;
             }
           }
         }
@@ -105,7 +118,7 @@ const ParticleCanvas = () => {
       }
 
       animate();
-    }, 2000); // 2 second delay before movement starts
+    });
 
     const handleResize = () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
