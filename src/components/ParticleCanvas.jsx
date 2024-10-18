@@ -2,6 +2,9 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass";
 
 const ParticleCanvas = () => {
   const canvasRef = useRef(null);
@@ -17,8 +20,33 @@ const ParticleCanvas = () => {
     const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000); // Black background
 
     camera.position.z = 50;
+
+    const gradientCanvas = document.createElement("canvas");
+    const gradientContext = gradientCanvas.getContext("2d");
+    gradientCanvas.width = window.innerWidth;
+    gradientCanvas.height = window.innerHeight;
+    const gradient = gradientContext.createLinearGradient(
+      0,
+      0,
+      gradientCanvas.width,
+      gradientCanvas.height
+    );
+    gradient.addColorStop(0, "#141E30");
+    gradient.addColorStop(1, "#243B55");
+    gradientContext.fillStyle = gradient;
+    gradientContext.fillRect(0, 0, gradientCanvas.width, gradientCanvas.height);
+    const backgroundTexture = new THREE.CanvasTexture(gradientCanvas);
+    const backgroundPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      new THREE.MeshBasicMaterial({ map: backgroundTexture })
+    );
+    backgroundPlane.material.depthTest = false;
+    backgroundPlane.material.depthWrite = false;
+    backgroundPlane.renderOrder = -1;
+    scene.add(backgroundPlane);
 
     const loader = new FontLoader();
     loader.load("/fonts/Harabara_Regular.json", (font) => {
@@ -29,12 +57,10 @@ const ParticleCanvas = () => {
       });
       const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
       const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-
       textGeometry.computeBoundingBox();
       const textCenter = new THREE.Vector3();
       textGeometry.boundingBox.getCenter(textCenter);
       textMesh.position.sub(textCenter);
-
       scene.add(textMesh);
 
       const particleCount = 10000;
@@ -47,9 +73,9 @@ const ParticleCanvas = () => {
         positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
         positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
 
-        speeds[i * 3] = Math.random() * 0.005 + 0.001; // Further reduced speed
-        speeds[i * 3 + 1] = Math.random() * 0.005 + 0.001; // Further reduced speed
-        speeds[i * 3 + 2] = Math.random() * 0.005 + 0.001; // Further reduced speed
+        speeds[i * 3] = Math.random() * 0.005 + 0.001;
+        speeds[i * 3 + 1] = Math.random() * 0.005 + 0.001;
+        speeds[i * 3 + 2] = Math.random() * 0.005 + 0.001;
       }
 
       const particleGeometry = new THREE.BufferGeometry();
@@ -60,7 +86,7 @@ const ParticleCanvas = () => {
 
       const particleMaterial = new THREE.PointsMaterial({
         color: 0x00aaff,
-        size: 0.2, // Reduced particle size
+        size: 0.2,
       });
 
       const particleSystem = new THREE.Points(
@@ -68,6 +94,23 @@ const ParticleCanvas = () => {
         particleMaterial
       );
       scene.add(particleSystem);
+
+      // Adjust bloom settings for subtle glow
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.8,
+        0.4,
+        0.3
+      ); // Reduced bloom intensity
+      composer.addPass(bloomPass);
+
+      const mouse = new THREE.Vector2();
+      window.addEventListener("mousemove", (event) => {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      });
 
       function animate() {
         requestAnimationFrame(animate);
@@ -105,7 +148,7 @@ const ParticleCanvas = () => {
         }
 
         particleGeometry.attributes.position.needsUpdate = true;
-        renderer.render(scene, camera);
+        composer.render();
       }
 
       animate();
