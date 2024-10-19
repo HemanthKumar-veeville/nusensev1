@@ -25,10 +25,23 @@ const ParticleCanvas = () => {
     camera.position.z = 50;
 
     const loader = new FontLoader();
+
+    // Function to calculate the text size based on screen width
+    const calculateTextSize = () => {
+      const screenWidth = window.innerWidth;
+      if (screenWidth <= 640) {
+        return 6; // Small screens (e.g., mobile)
+      } else if (screenWidth <= 1024) {
+        return 8; // Medium screens (e.g., tablet)
+      } else {
+        return 12; // Large screens (e.g., desktop)
+      }
+    };
+
     loader.load("/fonts/Harabara_Regular.json", (font) => {
       const textGeometry = new TextGeometry("nusense", {
         font: font,
-        size: 12,
+        size: calculateTextSize(), // Responsive text size
         height: 1,
       });
       const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
